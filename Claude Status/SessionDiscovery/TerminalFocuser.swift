@@ -6,6 +6,9 @@ struct SessionFocuser {
     /// Focuses the session's host app — iTerm2 for terminal sessions,
     /// or the IDE app for Xcode/VS Code/JetBrains/Zed sessions.
     func focus(session: ClaudeSession) {
+        // Remote sessions have no local terminal/IDE to focus
+        guard session.remoteHost == nil else { return }
+
         switch session.source {
         case .terminal(let app):
             focusTerminal(app: app, sessionId: session.iTermSessionId, tmuxPaneId: session.tmuxPaneId, tmuxSocket: session.tmuxSocket, workingDirectory: session.workingDirectory)

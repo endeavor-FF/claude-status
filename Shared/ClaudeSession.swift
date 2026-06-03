@@ -106,7 +106,7 @@ enum SessionSource: Codable, Equatable {
     }
 }
 
-/// A discovered Claude Code session on the local machine.
+/// A discovered Claude Code session on the local or a remote machine.
 struct ClaudeSession: Identifiable, Codable, Equatable {
     /// The session UUID from Claude Code (stable across refreshes).
     let sessionId: String
@@ -126,6 +126,9 @@ struct ClaudeSession: Identifiable, Codable, Equatable {
     let activity: String
     /// Optional custom session name set by the user via /name-session.
     let sessionName: String?
+    /// Non-nil for sessions discovered on a remote server via SSH.
+    /// Contains the `label` from the RemoteHostConfig.
+    let remoteHost: String?
 
     /// Use sessionId as the SwiftUI identity (stable, unlike PIDs).
     var id: String { sessionId }
