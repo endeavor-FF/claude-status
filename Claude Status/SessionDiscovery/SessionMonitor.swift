@@ -71,6 +71,7 @@ final class SessionMonitor {
 
     deinit {
         timer?.invalidate()
+        remoteTimer?.invalidate()
         let center = CFNotificationCenterGetDarwinNotifyCenter()
         CFNotificationCenterRemoveEveryObserver(center, Unmanaged.passUnretained(self).toOpaque())
     }

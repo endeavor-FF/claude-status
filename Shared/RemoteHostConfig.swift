@@ -1,7 +1,7 @@
 import Foundation
 
 /// Configuration for a remote server whose Claude Code sessions should be monitored.
-struct RemoteHostConfig: Codable, Identifiable, Equatable {
+nonisolated struct RemoteHostConfig: Codable, Identifiable, Equatable {
     var id: UUID
     /// User-facing label shown in the UI (e.g. "prod-server").
     var label: String

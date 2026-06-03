@@ -2,7 +2,7 @@ import Darwin
 import Foundation
 
 /// Parsed contents of a `<session_id>.cstatus` file written by the hook script.
-struct CStatusRecord {
+nonisolated struct CStatusRecord {
     let sessionId: String
     let pid: pid_t
     let ppid: pid_t
