@@ -4,7 +4,7 @@ import Foundation
 ///
 /// Uses `Foundation.Process` to run `ssh` commands, following the same pattern as
 /// `PluginInstaller.runCLI`. Each host is polled independently and in parallel.
-struct RemoteSessionDiscovery {
+nonisolated struct RemoteSessionDiscovery {
 
     /// Result of fetching sessions from a single remote host.
     struct RemoteResult {
