@@ -44,7 +44,9 @@ nonisolated struct RemoteSessionDiscovery {
             group.enter()
             queue.async {
                 let result = self.fetchSingle(host: host)
-                lock.sync { results.append(result) }
+                lock.lock()
+                results.append(result)
+                lock.unlock()
                 group.leave()
             }
         }
@@ -172,7 +174,7 @@ nonisolated struct RemoteSessionDiscovery {
         }
 
         let stdout = String(data: stdoutData, encoding: .utf8) ?? ""
-        let stderr = String(data: stderrData, encoding: .utf8)
+        let stderr = (String(data: stderrData, encoding: .utf8) ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
         return (stdout, stderr, process.terminationStatus)
