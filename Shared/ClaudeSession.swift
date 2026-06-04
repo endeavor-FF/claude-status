@@ -1,7 +1,7 @@
 import Foundation
 
 /// Represents the current state of a Claude Code session.
-nonisolated enum SessionState: Comparable, Codable {
+enum SessionState: Comparable, Codable {
     case active
     case waiting
     case idle
@@ -76,7 +76,7 @@ nonisolated enum SessionState: Comparable, Codable {
 }
 
 /// Where a Claude session is running.
-nonisolated enum SessionSource: Codable, Equatable {
+enum SessionSource: Codable, Equatable {
     case terminal(app: String)  // e.g. "iTerm2", "Terminal", "Ghostty"
     case xcode
     case vscode
