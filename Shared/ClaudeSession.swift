@@ -107,7 +107,7 @@ enum SessionSource: Codable, Equatable {
 }
 
 /// A discovered Claude Code session on the local or a remote machine.
-nonisolated struct ClaudeSession: Identifiable, Codable, Equatable {
+struct ClaudeSession: Identifiable, Codable, Equatable {
     /// The session UUID from Claude Code (stable across refreshes).
     let sessionId: String
     let pid: pid_t
@@ -129,6 +129,38 @@ nonisolated struct ClaudeSession: Identifiable, Codable, Equatable {
     /// Non-nil for sessions discovered on a remote server via SSH.
     /// Contains the `label` from the RemoteHostConfig.
     let remoteHost: String?
+
+    /// Nonisolated initializer for constructing sessions from non-MainActor contexts
+    /// (e.g. RemoteSessionDiscovery running on a background queue).
+    nonisolated init(
+        sessionId: String,
+        pid: pid_t,
+        workingDirectory: String,
+        projectName: String,
+        state: SessionState,
+        lastActivityAt: Date,
+        iTermSessionId: String?,
+        tmuxPaneId: String?,
+        tmuxSocket: String?,
+        source: SessionSource,
+        activity: String,
+        sessionName: String?,
+        remoteHost: String?
+    ) {
+        self.sessionId = sessionId
+        self.pid = pid
+        self.workingDirectory = workingDirectory
+        self.projectName = projectName
+        self.state = state
+        self.lastActivityAt = lastActivityAt
+        self.iTermSessionId = iTermSessionId
+        self.tmuxPaneId = tmuxPaneId
+        self.tmuxSocket = tmuxSocket
+        self.source = source
+        self.activity = activity
+        self.sessionName = sessionName
+        self.remoteHost = remoteHost
+    }
 
     /// Use sessionId as the SwiftUI identity (stable, unlike PIDs).
     var id: String { sessionId }

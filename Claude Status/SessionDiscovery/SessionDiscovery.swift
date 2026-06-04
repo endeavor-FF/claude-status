@@ -2,7 +2,7 @@ import Darwin
 import Foundation
 
 /// Parsed contents of a `<session_id>.cstatus` file written by the hook script.
-nonisolated struct CStatusRecord {
+struct CStatusRecord {
     let sessionId: String
     let pid: pid_t
     let ppid: pid_t
@@ -23,7 +23,7 @@ nonisolated struct CStatusRecord {
 
     /// Parses a JSON dictionary (from a `.cstatus` file) into a `CStatusRecord`.
     /// Returns nil if required fields are missing or malformed.
-    static func parse(json: [String: Any], fileURL: URL) -> CStatusRecord? {
+    nonisolated static func parse(json: [String: Any], fileURL: URL) -> CStatusRecord? {
         guard let sessionId = json["session_id"] as? String,
               let pidValue = json["pid"] as? Int,
               let stateString = json["state"] as? String,
