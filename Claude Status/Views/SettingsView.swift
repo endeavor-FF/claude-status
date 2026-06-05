@@ -233,6 +233,8 @@ private struct RemoteHostEditView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var config: RemoteHostConfig
+    @State private var sshConfigHosts: [SSHConfigHost] = []
+    @State private var selectedSSHHost: SSHConfigHost?
 
     init(host: RemoteHostConfig, onSave: @escaping (RemoteHostConfig) -> Void) {
         self.host = host
@@ -243,11 +245,43 @@ private struct RemoteHostEditView: View {
     var body: some View {
         VStack(spacing: 0) {
             Form {
+                if !sshConfigHosts.isEmpty {
+                    Section("SSH Config") {
+                        Picker("Import from ~/.ssh/config", selection: $selectedSSHHost) {
+                            Text("None").tag(nil as SSHConfigHost?)
+                            ForEach(sshConfigHosts) { sshHost in
+                                Text(sshHost.alias).tag(sshHost as SSHConfigHost?)
+                            }
+                        }
+                        .onChange(of: selectedSSHHost) { _, newValue in
+                            if let ssh = newValue {
+                                applySSHHost(ssh)
+                            }
+                        }
+                    }
+                }
+
                 Section("Server") {
                     TextField("Label", text: $config.label)
                         .help("A friendly name shown in the session list")
-                    TextField("Hostname", text: $config.hostname)
-                        .help("IP address, domain, or SSH config alias")
+                    HStack {
+                        TextField("Hostname", text: $config.hostname)
+                            .help("IP address, domain, or SSH config alias")
+                        if !sshConfigHosts.isEmpty {
+                            Menu {
+                                ForEach(sshConfigHosts) { sshHost in
+                                    Button(sshHost.alias) {
+                                        applySSHHost(sshHost)
+                                    }
+                                }
+                            } label: {
+                                Image(systemName: "list.bullet")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .menuStyle(.borderlessButton)
+                            .fixedSize()
+                        }
+                    }
                     HStack {
                         Text("Port")
                         Spacer()
@@ -261,7 +295,7 @@ private struct RemoteHostEditView: View {
 
                 Section("Authentication") {
                     TextField("SSH Key Path", text: $config.sshKeyPath)
-                        .help("Leave empty to use default SSH key discovery")
+                        .help("Leave empty to use default SSH key discovery or SSH config")
                 }
 
                 Section("Options") {
@@ -288,5 +322,27 @@ private struct RemoteHostEditView: View {
             .padding()
         }
         .frame(width: 380)
+        .onAppear {
+            sshConfigHosts = SSHConfigParser.parse()
+        }
+    }
+
+    /// Apply values from a parsed SSH config host to the form fields.
+    private func applySSHHost(_ ssh: SSHConfigHost) {
+        // Use alias as label if label is empty
+        if config.label.isEmpty {
+            config.label = ssh.alias
+        }
+        // Use alias as hostname — SSH will resolve it via config
+        config.hostname = ssh.alias
+        if let user = ssh.user {
+            config.username = user
+        }
+        if let port = ssh.port {
+            config.port = port
+        }
+        if let key = ssh.identityFile {
+            config.sshKeyPath = key
+        }
     }
 }
