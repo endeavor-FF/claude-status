@@ -28,7 +28,8 @@ struct SessionStateTests {
             tmuxSocket: nil,
             source: .terminal(app: "Terminal"),
             activity: "Read",
-            sessionName: nil
+            sessionName: nil,
+            remoteHost: nil
         )
         #expect(recent.timeSinceActivity == "just now")
 
@@ -44,7 +45,8 @@ struct SessionStateTests {
             tmuxSocket: nil,
             source: .terminal(app: "Terminal"),
             activity: "Bash",
-            sessionName: nil
+            sessionName: nil,
+            remoteHost: nil
         )
         #expect(fiveMinAgo.timeSinceActivity == "5m ago")
 
@@ -60,7 +62,8 @@ struct SessionStateTests {
             tmuxSocket: nil,
             source: .terminal(app: "Terminal"),
             activity: "",
-            sessionName: nil
+            sessionName: nil,
+            remoteHost: nil
         )
         #expect(twoHoursAgo.timeSinceActivity == "2h ago")
     }
@@ -78,7 +81,8 @@ struct SessionStateTests {
             tmuxSocket: "/tmp/tmux-501/default",
             source: .terminal(app: "iTerm2"),
             activity: "thinking",
-            sessionName: "Debug Sprint"
+            sessionName: "Debug Sprint",
+            remoteHost: nil
         )
 
         let encoded = try JSONEncoder().encode(session)
@@ -110,7 +114,8 @@ struct SessionStateTests {
             tmuxSocket: nil,
             source: .terminal(app: "Terminal"),
             activity: "Edit",
-            sessionName: "API Refactor"
+            sessionName: "API Refactor",
+            remoteHost: nil
         )
 
         let encoded = try JSONEncoder().encode(session)

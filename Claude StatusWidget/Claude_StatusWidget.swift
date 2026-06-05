@@ -45,7 +45,8 @@ struct Claude_StatusWidget: Widget {
             tmuxSocket: nil,
             source: .terminal(app: "iTerm2"),
             activity: "Edit",
-            sessionName: "API Refactor"
+            sessionName: "API Refactor",
+        remoteHost: nil
         ),
         ClaudeSession(
             sessionId: "preview-2",
@@ -59,7 +60,8 @@ struct Claude_StatusWidget: Widget {
             tmuxSocket: nil,
             source: .vscode,
             activity: "",
-            sessionName: nil
+            sessionName: nil,
+        remoteHost: nil
         ),
     ])
 }
@@ -80,7 +82,8 @@ struct Claude_StatusWidget: Widget {
             tmuxSocket: nil,
             source: .terminal(app: "iTerm2"),
             activity: "Edit",
-            sessionName: "API Refactor"
+            sessionName: "API Refactor",
+        remoteHost: nil
         ),
         ClaudeSession(
             sessionId: "preview-2",
@@ -94,7 +97,8 @@ struct Claude_StatusWidget: Widget {
             tmuxSocket: nil,
             source: .vscode,
             activity: "",
-            sessionName: nil
+            sessionName: nil,
+        remoteHost: nil
         ),
         ClaudeSession(
             sessionId: "preview-3",
@@ -108,7 +112,8 @@ struct Claude_StatusWidget: Widget {
             tmuxSocket: nil,
             source: .terminal(app: "Ghostty"),
             activity: "Bash",
-            sessionName: nil
+            sessionName: nil,
+        remoteHost: nil
         ),
         ClaudeSession(
             sessionId: "preview-4",
@@ -122,7 +127,8 @@ struct Claude_StatusWidget: Widget {
             tmuxSocket: nil,
             source: .terminal(app: "Terminal"),
             activity: "",
-            sessionName: nil
+            sessionName: nil,
+        remoteHost: nil
         ),
         ClaudeSession(
             sessionId: "preview-5",
@@ -136,7 +142,8 @@ struct Claude_StatusWidget: Widget {
             tmuxSocket: nil,
             source: .jetbrains(ide: "IntelliJ"),
             activity: "",
-            sessionName: nil
+            sessionName: nil,
+        remoteHost: nil
         ),
     ])
 }

@@ -31,6 +31,15 @@ struct SessionRowView: View {
                     .lineLimit(1)
 
                 HStack(spacing: 4) {
+                    if let host = session.remoteHost {
+                        Text(host)
+                            .font(.system(size: 9))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(.blue.opacity(0.15))
+                            .foregroundStyle(.blue)
+                            .clipShape(RoundedRectangle(cornerRadius: 3))
+                    }
                     if session.sessionName != nil {
                         Text(session.projectName)
                             .font(.system(size: 10))

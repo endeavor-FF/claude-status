@@ -1,0 +1,106 @@
+name: Unsigned Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Package
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Cache Cargo
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            claude-status-plugin/target
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('claude-status-plugin/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-release-
+
+      - name: Build universal plugin binaries
+        run: |
+          cd claude-status-plugin
+          cargo build --release --target aarch64-apple-darwin
+          cargo build --release --target x86_64-apple-darwin
+          mkdir -p plugins/claude-status/scripts
+          lipo -create \
+            target/aarch64-apple-darwin/release/session-status \
+            target/x86_64-apple-darwin/release/session-status \
+            -output plugins/claude-status/scripts/session-status
+          lipo -create \
+            target/aarch64-apple-darwin/release/set-session-name \
+            target/x86_64-apple-darwin/release/set-session-name \
+            -output plugins/claude-status/scripts/set-session-name
+
+      - name: Resolve Sparkle packages
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project "Claude Status.xcodeproj" \
+            -scheme "Claude Status"
+
+      - name: Derive version from tag
+        id: version
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build app
+        run: |
+          xcodebuild clean build \
+            -project "Claude Status.xcodeproj" \
+            -scheme "Claude Status" \
+            -configuration Release \
+            -derivedDataPath DerivedData \
+            -destination "platform=macOS" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY=- \
+            MARKETING_VERSION="${{ steps.version.outputs.version }}" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            MACOSX_DEPLOYMENT_TARGET=15.0
+
+      - name: Package app as zip
+        id: zip
+        run: |
+          APP_PATH="DerivedData/Build/Products/Release/Claude Status.app"
+          ZIP_NAME="Claude-Status-${{ steps.version.outputs.version }}-unsigned.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$ZIP_NAME"
+          echo "zip_name=$ZIP_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Build installer pkg
+        id: pkg
+        run: |
+          APP_PATH="DerivedData/Build/Products/Release/Claude Status.app"
+          PKG_NAME="Claude-Status-${{ steps.version.outputs.version }}-unsigned.pkg"
+          pkgbuild \
+            --component "$APP_PATH" \
+            --install-location "/Applications" \
+            --identifier "com.poisonpenllc.Claude-Status" \
+            --version "${{ steps.version.outputs.version }}" \
+            "$PKG_NAME"
+          echo "pkg_name=$PKG_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            "${{ steps.zip.outputs.zip_name }}" \
+            "${{ steps.pkg.outputs.pkg_name }}"

@@ -15,6 +15,52 @@ struct CStatusRecord {
     let fileURL: URL
     /// The encoded project directory name (parent of the .cstatus file).
     let projectDir: URL
+
+    private static let iso8601Formatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        return formatter
+    }()
+
+    /// Parses a JSON dictionary (from a `.cstatus` file) into a `CStatusRecord`.
+    /// Returns nil if required fields are missing or malformed.
+    nonisolated static func parse(json: [String: Any], fileURL: URL) -> CStatusRecord? {
+        guard let sessionId = json["session_id"] as? String,
+              let pidValue = json["pid"] as? Int,
+              let stateString = json["state"] as? String,
+              let timestampString = json["timestamp"] as? String else {
+            return nil
+        }
+
+        let ppidValue = json["ppid"] as? Int ?? 0
+
+        let state: SessionState
+        switch stateString {
+        case "active": state = .active
+        case "waiting": state = .waiting
+        case "compacting": state = .compacting
+        default: state = .idle
+        }
+
+        let activity = json["activity"] as? String ?? ""
+        let timestamp = iso8601Formatter.date(from: timestampString) ?? Date()
+        let cwd = json["cwd"] as? String ?? ""
+        let event = json["event"] as? String ?? ""
+        let sessionName = json["session_name"] as? String
+
+        return CStatusRecord(
+            sessionId: sessionId,
+            pid: pid_t(pidValue),
+            ppid: pid_t(ppidValue),
+            state: state,
+            activity: activity,
+            timestamp: timestamp,
+            cwd: cwd,
+            event: event,
+            sessionName: sessionName,
+            fileURL: fileURL,
+            projectDir: fileURL.deletingLastPathComponent()
+        )
+    }
 }
 
 /// Discovers Claude Code sessions by scanning `~/.claude/projects/` for `.cstatus` files
@@ -89,11 +135,6 @@ struct SessionDiscovery {
         deadSessions.removeAll()
     }
 
-    private static let iso8601Formatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        return formatter
-    }()
-
     // MARK: - File Scanning
 
     /// Enumerates all `.cstatus` files under `~/.claude/projects/*/`.
@@ -134,45 +175,10 @@ struct SessionDiscovery {
     /// Parses a single `.cstatus` JSON file.
     private func parseCStatusFile(at url: URL) -> CStatusRecord? {
         guard let data = try? Data(contentsOf: url),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let sessionId = json["session_id"] as? String,
-              let pidValue = json["pid"] as? Int,
-              let stateString = json["state"] as? String,
-              let timestampString = json["timestamp"] as? String else {
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return nil
         }
-
-        let ppidValue = json["ppid"] as? Int ?? 0
-
-        let state: SessionState
-        switch stateString {
-        case "active": state = .active
-        case "waiting": state = .waiting
-        case "compacting": state = .compacting
-        default: state = .idle
-        }
-
-        let activity = json["activity"] as? String ?? ""
-
-        let timestamp = Self.iso8601Formatter.date(from: timestampString) ?? Date()
-
-        let cwd = json["cwd"] as? String ?? ""
-        let event = json["event"] as? String ?? ""
-        let sessionName = json["session_name"] as? String
-
-        return CStatusRecord(
-            sessionId: sessionId,
-            pid: pid_t(pidValue),
-            ppid: pid_t(ppidValue),
-            state: state,
-            activity: activity,
-            timestamp: timestamp,
-            cwd: cwd,
-            event: event,
-            sessionName: sessionName,
-            fileURL: url,
-            projectDir: url.deletingLastPathComponent()
-        )
+        return CStatusRecord.parse(json: json, fileURL: url)
     }
 
     // MARK: - Session Assembly
@@ -221,7 +227,8 @@ struct SessionDiscovery {
             tmuxSocket: tmuxSocket,
             source: source,
             activity: record.activity,
-            sessionName: record.sessionName
+            sessionName: record.sessionName,
+            remoteHost: nil
         )
     }
 
