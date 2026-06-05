@@ -24,6 +24,10 @@ nonisolated struct RemoteSessionDiscovery {
     private static let delimiter = "<<<CSTATUS:"
     private static let delimiterEnd = ">>>"
 
+    /// Delimiter for process-based session detection (no plugin required).
+    private static let procDelimiter = "<<<PROC:"
+    private static let procDelimiterEnd = ">>>"
+
     // MARK: - Public API
 
     /// Fetches sessions from all enabled hosts in parallel.
@@ -94,11 +98,25 @@ nonisolated struct RemoteSessionDiscovery {
             args += ["-p", String(host.port)]
         }
 
-        // Remote command: find all .cstatus files and output them with delimiters
+        // Remote command: try .cstatus files first, fall back to process detection
         let remotePath = host.remotePath.isEmpty ? "~/.claude/projects" : host.remotePath
         let remoteCmd = """
-        find \(remotePath) -name '*.cstatus' -print0 2>/dev/null | \
-          xargs -0 -I{} sh -c 'echo "\(Self.delimiter){}\(Self.delimiterEnd)"; cat "{}"'
+        has_cstatus=0; \
+        for f in $(find \(remotePath) -name '*.cstatus' 2>/dev/null); do \
+          has_cstatus=1; \
+          echo "\(Self.delimiter)$f\(Self.delimiterEnd)"; \
+          cat "$f"; \
+        done; \
+        if [ "$has_cstatus" = "0" ]; then \
+          ps -eo pid,lstart,args 2>/dev/null | \
+          grep -E '[c]laude(\\.js)?([ ]|$)' | grep -v grep | while read line; do \
+            pid=$(echo "$line" | awk '{print $1}'); \
+            cwd=$(readlink /proc/$pid/cwd 2>/dev/null || echo ""); \
+            if [ -n "$cwd" ]; then \
+              echo "\(Self.procDelimiter)$pid|$cwd\(Self.procDelimiterEnd)"; \
+            fi; \
+          done; \
+        fi
         """
 
         // Target
@@ -182,7 +200,8 @@ nonisolated struct RemoteSessionDiscovery {
 
     // MARK: - Output Parsing
 
-    /// Parses SSH output containing delimited `.cstatus` file contents.
+    /// Parses SSH output containing delimited `.cstatus` file contents
+    /// and/or process-based session detection results.
     /// Returns assembled sessions, skipping stale or unparseable entries.
     func parseSSHOutput(_ output: String, hostLabel: String) -> [ClaudeSession] {
         guard !output.isEmpty else { return [] }
@@ -190,10 +209,9 @@ nonisolated struct RemoteSessionDiscovery {
         let now = Date()
         var sessions: [ClaudeSession] = []
 
-        // Split by delimiter pattern: <<<CSTATUS:/path/to/file>>>
+        // 1. Parse .cstatus file entries: <<<CSTATUS:/path>>>\n{json}
         let components = output.components(separatedBy: Self.delimiter)
         for component in components {
-            // Each component is: "/path/to/file>>>\n{json content}"
             guard let endRange = component.range(of: Self.delimiterEnd) else { continue }
 
             let jsonStart = component.index(endRange.upperBound, offsetBy: 0)
@@ -205,17 +223,13 @@ nonisolated struct RemoteSessionDiscovery {
                 continue
             }
 
-            // Use a dummy fileURL since we don't have the actual remote path
             let dummyURL = URL(fileURLWithPath: "/remote/\(hostLabel)")
             guard let record = CStatusRecord.parse(json: json, fileURL: dummyURL) else {
                 continue
             }
 
-            // Staleness check: skip sessions with old timestamps
             let age = now.timeIntervalSince(record.timestamp)
-            if age > Self.stalenessThreshold {
-                continue
-            }
+            if age > Self.stalenessThreshold { continue }
 
             let projectName = (record.cwd as NSString).lastPathComponent
             let session = ClaudeSession(
@@ -234,6 +248,39 @@ nonisolated struct RemoteSessionDiscovery {
                 remoteHost: hostLabel
             )
             sessions.append(session)
+        }
+
+        // 2. Parse process-based entries: <<<PROC:pid|/cwd>>>
+        if output.contains(Self.procDelimiter) {
+            let procComponents = output.components(separatedBy: Self.procDelimiter)
+            for component in procComponents {
+                guard let endRange = component.range(of: Self.procDelimiterEnd) else { continue }
+                let data = component[component.startIndex..<endRange.lowerBound]
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let parts = data.split(separator: "|", maxSplits: 1).map(String.init)
+                guard parts.count == 2, let pid = Int32(parts[0]) else { continue }
+
+                let cwd = parts[1]
+                let projectName = (cwd as NSString).lastPathComponent
+                let sessionId = "remote-\(hostLabel)-\(pid)"
+
+                let session = ClaudeSession(
+                    sessionId: sessionId,
+                    pid: pid,
+                    workingDirectory: cwd,
+                    projectName: projectName,
+                    state: .active,
+                    lastActivityAt: now,
+                    iTermSessionId: nil,
+                    tmuxPaneId: nil,
+                    tmuxSocket: nil,
+                    source: .terminal(app: "Claude"),
+                    activity: "",
+                    sessionName: nil,
+                    remoteHost: hostLabel
+                )
+                sessions.append(session)
+            }
         }
 
         return sessions
